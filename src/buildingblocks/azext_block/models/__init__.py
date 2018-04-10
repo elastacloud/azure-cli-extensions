@@ -10,6 +10,28 @@ from .load_balancer import (
     LoadBalancerBuildingBlock
 )
 
+"""
+from .network_interface import (
+    NetworkInterface,
+    NetworkInterfaceBuildingBlock
+)
+
+from .virtual_machine import (
+    VirtualMachine,
+    VirtualMachineBuildingBlock
+)
+"""
+
+from .virtual_machine_extension import (
+    VirtualMachineExtension,
+    VirtualMachineExtensionBuildingBlock,
+    Extension
+)
+from .virtual_network import (
+    VirtualNetwork,
+    VirtualNetworkBuildingBlock
+)
+
 from .virtual_network_gateway import (
     VirtualNetworkGateway,
     VirtualNetworkGatewayBuildingBlock
