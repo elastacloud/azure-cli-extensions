@@ -77,3 +77,29 @@ from .virtual_network import (
     VirtualNetworkPeering,
     VirtualNetworkBuildingBlock
 )
+
+from .application_gateway import (
+    ApplicationGatewayBuildingBlock,
+    ApplicationGateway,
+    Sku,
+    GatewayIPConfiguration,
+    FrontendIPConfiguration,
+    InternalApplicationGatewaySetting,
+    BackendAddressPool,
+    BackendAddress,
+    BackendHttpSettings,
+    ConnectionDraining,
+    HttpListener,
+    RedirectConfiguration,
+    UrlPathMap,
+    PathRule,
+    RequestRoutingRule,
+    WebApplicationFirewallConfiguration,
+    DisabledRuleGroup,
+    Probe,
+    Match,
+    SslCertificate,
+    AuthenticationCertificate,
+    SslPolicy,
+    FrontendPort
+)

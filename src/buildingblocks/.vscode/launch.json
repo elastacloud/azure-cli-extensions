@@ -86,7 +86,7 @@
                 "deploy",
                 "--debug",
                 "--parameter-file",
-                "${workspaceFolder}\\deploy-vmext-test.json",
+                "${workspaceFolder}\\deploy-app-gateway.json",
                 "--resource-group",
                 "mspnp",
                 "--location",
