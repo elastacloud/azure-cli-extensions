@@ -155,6 +155,7 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
     def transform(self):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySdk)
         model = factory(
+            id = self.id,
             name = self.name,
             subscription_id = self.subscription_id,
             resource_group_name = self.resource_group_name,
