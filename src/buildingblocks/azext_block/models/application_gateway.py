@@ -62,28 +62,31 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
         self.settings = settings if settings else []
 
     def transform(self):
-        ip_addresses = [application_gateway.frontend_ip_configurations for application_gateway in self.settings if application_gateway.frontend_ip_configurations]
-        ip_addresses_public = [ip_address.transform() for ip_address in ip_addresses[0] if ip_address.application_gateway_type == 'Public']
-        application_gateways = [application_gateway.transform() for application_gateway in self.settings]
-
         public_ip_addresses = []
 
-        for ip_address in ip_addresses_public:
-            
-            public_ip_address_parameters = {
-                'subscription_id': self.subscription_id,
-                'resource_group_name': self.resource_group_name,
-                'location': self.location,
-                'name': '{}-pip'.format(ip_address.name),
-                'public_ip_allocation_method': 'Dynamic',
-                'public_ip_address_version': "IPv4",
-                'idle_timeout_in_minutes': None,
-                'zones': None,
-                'domain_name_label': None
-            }
+        application_gateways = [application_gateway.transform(application_gateway.additional_properties['virtualNetwork']['name']) for application_gateway in self.settings]
 
-            public_ip_address = PublicIPAddress(**public_ip_address_parameters)
-            public_ip_addresses.append(public_ip_address.transform())
+        for application_gateway in application_gateways:
+            ip_addresses = [application_gateway.frontend_ip_configurations for application_gateway in self.settings if application_gateway.frontend_ip_configurations]
+            ip_addresses_public = [ip_address for ip_address in ip_addresses[0] if ip_address.application_gateway_type == 'Public']
+
+            for ip_address in ip_addresses_public:
+                public_ip_address_parameters = {
+                    'subscription_id': self.subscription_id,
+                    'resource_group_name': self.resource_group_name,
+                    'location': self.location,
+                    'name': "{}-{}".format(application_gateway.name, ip_address.name),
+                    'public_ip_allocation_method': 'Dynamic',
+                    'public_ip_address_version': "IPv4",
+                    'idle_timeout_in_minutes': None,
+                    'zones': None,
+                    'domain_name_label': None
+                }
+
+                ip_address.name = "{}-{}".format(application_gateway.name, ip_address.name)
+
+                public_ip_address = PublicIPAddress(**public_ip_address_parameters)
+                public_ip_addresses.append(public_ip_address.transform())
         
         resource_groups = extract_resource_groups(application_gateways)
         template_parameters = {
@@ -91,6 +94,9 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
             'publicIpAddresses': public_ip_addresses
         }
         return resource_groups, template_parameters
+
+    def proxy_extract_resource_groups(self, application_gateways):
+        return extract_resource_groups(application_gateways)
 
     @classmethod
     def onregister(cls):
@@ -104,24 +110,24 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
     _attribute_map = {
         "sku": {"key": "sku", "type": "Sku"},
         "gateway_ip_configurations": {"key": "gatewayIPConfigurations", "type": "[GatewayIPConfiguration]"},
-        "frontend_ip_configurations": {"key": "frontendIPConfigurations", "type": "[FrontendIPConfiguration]", 'parent': 'application_gateway'},
+        "frontend_ip_configurations": {"key": "frontendIPConfigurations", "type": "[FrontendIPConfiguration]", "parent": "application_gateway"},
         "backend_address_pools": {"key": "backendAddressPools", "type": "[BackendAddressPool]"},
-        "backend_http_settings_collection": {"key": "backendHttpSettingsCollection", "type": "[BackendHttpSettings]"},
-        "http_listeners": {"key": "httpListeners", "type": "[HttpListener]"},
+        "backend_http_settings_collection": {"key": "backendHttpSettingsCollection", "type": "[BackendHttpSettings]", "parent": "application_gateway"},
+        "http_listeners": {"key": "httpListeners", "type": "[HttpListener]", 'parent': 'application_gateway'},
         #"redirect_configurations": {"key": "redirectConfigurations", "type": "[RedirectConfiguration]"},
-        "url_path_maps": {"key": "urlPathMaps", "type": "[UrlPathMap]"},
-        "request_routing_rules": {"key": "requestRoutingRules", "type": "[RequestRoutingRule]"},
+        "url_path_maps": {"key": "urlPathMaps", "type": "[UrlPathMap]", 'parent': 'application_gateway'},
+        "request_routing_rules": {"key": "requestRoutingRules", "type": "[RequestRoutingRule]", "parent": "application_gateway"},
         "web_application_firewall_configuration": {"key": "webApplicationFirewallConfiguration", "type": "WebApplicationFirewallConfiguration"},
         "probes": {"key": "probes", "type": "[Probe]"},
         "ssl_certificates": {"key": "sslCertificates", "type": "[SslCertificate]"},
-        "authentication_certificate": {"key": "authenticationCertificate", "type": "[AuthenticationCertificate]"},
+        "authentication_certificates": {"key": "authenticationCertificates", "type": "[AuthenticationCertificate]"},
         "frontend_ports": {"key": "frontendPorts", "type": "[FrontendPort]"},
         "ssl_policy": {"key": "sslPolicy", "type": "SslPolicy"}
     }
 
-    def __init__(self, sku=None, gateway_ip_configurations=None, frontend_ip_configurations=None, backend_address_pools=None, backend_http_settings_collection=None, http_listeners=None, redirect_configurations=None, url_path_maps=None, request_routing_rules=None, web_application_firewall_configuration=None, probes=None, ssl_certificates=None, authentication_certificate=None, frontend_ports=None, ssl_policy=None, **kwargs):
+    def __init__(self, sku=None, gateway_ip_configurations=None, frontend_ip_configurations=None, backend_address_pools=None, backend_http_settings_collection=None, http_listeners=None, redirect_configurations=None, url_path_maps=None, request_routing_rules=None, web_application_firewall_configuration=None, probes=None, ssl_certificates=None, authentication_certificates=None, frontend_ports=None, ssl_policy=None, **kwargs):
          super(ApplicationGateway, self).__init__(**kwargs)
-         self.sku = sku if sku else None
+         self.sku = sku.transform() if sku else None
          self.gateway_ip_configurations = gateway_ip_configurations if gateway_ip_configurations else None
          self.frontend_ip_configurations = frontend_ip_configurations if frontend_ip_configurations else None
          self.backend_address_pools = backend_address_pools if backend_address_pools else None
@@ -130,12 +136,12 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
          #self.redirect_configurations = redirect_configurations if redirect_configurations else None
          self.url_path_maps = url_path_maps if url_path_maps else None
          self.request_routing_rules = request_routing_rules if request_routing_rules else None
-         self.web_application_firewall_configuration = web_application_firewall_configuration if web_application_firewall_configuration else None
+         self.web_application_firewall_configuration = web_application_firewall_configuration.transform() if web_application_firewall_configuration else None
          self.probes = probes if probes else None
          self.ssl_certificates = ssl_certificates if ssl_certificates else None
-         self.authentication_certificate = authentication_certificate if authentication_certificate else None
+         self.authentication_certificates = authentication_certificates if authentication_certificates else None
          self.frontend_ports = frontend_ports if frontend_ports else None
-         self.ssl_policy = ssl_policy if ssl_policy else None
+         self.ssl_policy = ssl_policy.transform() if ssl_policy else None
          self._validation.update({
              "sku": {"required": True},
              "gateway_ip_configurations": {"required": True, "min_items": 1},
@@ -152,27 +158,30 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
              "frontend_ports": {"required": True, "min_items": 1}
          })
 
-    def transform(self):
+    def transform(self, vn=None):
+
+        if self.ssl_certificates != None:
+            self.ssl_certificates = [s.transform for s in self.ssl_certificates]
+
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySdk)
         model = factory(
             name = self.name,
             subscription_id = self.subscription_id,
             resource_group_name = self.resource_group_name,
             location = self.location,
-            tags = self.tags,
             sku = self.sku,
             ssl_policy = self.ssl_policy,
-            gateway_ip_configurations = self.gateway_ip_configurations,
-            authentication_certificates = self.authentication_certificate,
+            gateway_ip_configurations = [g.transform(vn) for g in self.gateway_ip_configurations],
+            authentication_certificates = [a.transform() for a in self.authentication_certificates],
             ssl_certificates = self.ssl_certificates,
-            frontend_ip_configurations = self.frontend_ip_configurations,
-            frontend_ports = self.frontend_ports,
-            probes = self.probes,
-            backend_address_pools = self.backend_address_pools,
-            backend_http_settings_collection = self.backend_http_settings_collection,
-            http_listeners = self.http_listeners,
-            url_path_maps = self.url_path_maps,
-            request_routing_rules = self.request_routing_rules,
+            frontend_ip_configurations = [f.transform(vn) for f in self.frontend_ip_configurations],
+            frontend_ports = [f.transform() for f in self.frontend_ports],
+            probes = [p.transform() for p in self.probes],
+            backend_address_pools = [b.transform() for b in self.backend_address_pools],
+            backend_http_settings_collection = [b.transform() for b in self.backend_http_settings_collection],
+            http_listeners = [l.transform() for l in self.http_listeners],
+            url_path_maps = [u.transform() for u in self.url_path_maps],
+            request_routing_rules = [r.transform() for r in self.request_routing_rules],
             #redirect_configurations = self.redirectConfigurations,
             web_application_firewall_configuration = self.web_application_firewall_configuration
         )
@@ -191,10 +200,10 @@ class Sku(Resource):
     def __init__(self, size=None, capacity=None, tier=None, **kwargs):
          super(Sku, self).__init__(**kwargs)
          self.tier = tier if tier else "Standard"
-         self.size = size if size else "Medium" if tier == "Standard" else "Small"
+         self.size = size if size else "Medium" if tier == "WAF" else "Small"
          self.capacity = capacity if capacity else None
          self._validation.update({
-             "size": {"required": True, "custom": Sku._is_valid_sku},
+             #"size": {"required": True, "custom": Sku._is_valid_sku},
              "capacity": {"required": True, "custom": Sku._is_valid_capacity},
              "tier": {"required": True, "custom": Sku._is_valid_tier}
          })
@@ -202,7 +211,7 @@ class Sku(Resource):
     def transform(self):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySkuSdk)
         model = factory(
-            name = self.size,
+            name = "{}_{}".format(self.tier, self.size),
             tier = self.tier,
             capacity = self.capacity
         )
@@ -243,12 +252,22 @@ class GatewayIPConfiguration(Resource):
              "subnet_name": {"required": True}
          })
 
-    def transform(self):
+    def transform(self, vn=None):
+        if self.subnet_name != None:
+            self.subnet_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='virtualNetworks',
+                name=vn,
+                child_type_1="subnets",
+                child_name_1=self.subnet_name))
+
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayIPConfigurationSdk)
 
         model = factory(
             name = self.name,
-            subnet = self.subnet_name
+            subnet =  self.subnet_name
         )
 
         return model
@@ -267,14 +286,26 @@ class FrontendIPConfiguration(TopLevelResource, Resource):
             "application_gateway_type": {"required": True, "custom": FrontendIPConfiguration._is_valid_gateway_type}
         })
 
-    def transform(self):
+    def transform(self, vn):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayFrontendIPConfigurationSdk)
 
         model = factory(
             name = self.name,
             private_ip_allocation_method = 'Dynamic',
-            public_ip_address = self.name if self.application_gateway_type == 'Public' else None,
-            subnet = self.internal_application_gateway_settings.subnet_name if self.application_gateway_type == 'Internal' else None
+            public_ip_address = SubResource(id=resource_id(
+                subscription=self.subscription_id,
+                resource_group=self.resource_group_name,
+                namespace='Microsoft.Network',
+                type='publicIPAddresses',
+                name=self.name)),
+            subnet = SubResource(id=resource_id(
+                subscription=self.subscription_id,
+                resource_group=self.resource_group_name,
+                namespace='Microsoft.Network',
+                type='virtualNetworks',
+                name=vn,
+                child_type_1="subnets",
+                child_name_1=self.internal_application_gateway_settings.subnet_name)) if self.internal_application_gateway_settings and self.internal_application_gateway_settings.subnet_name else None
         )
 
         return model
@@ -318,6 +349,9 @@ class BackendAddressPool(Resource):
          })
 
     def transform(self):
+        if self.backend_addresses != None:
+            self.backend_addresses = [ba.transform() for ba in self.backend_addresses]
+
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayBackendAddressPoolSdk)
 
         model = factory(
@@ -376,7 +410,7 @@ class BackendHttpSettings(Resource):
          self.protocol = protocol if protocol else None
          self.cookie_based_affinity = cookie_based_affinity if cookie_based_affinity else None
          self.affinity_cookie_name = affinity_cookie_name if affinity_cookie_name else None
-         self.connection_draining = connection_draining if connection_draining else None
+         self.connection_draining = connection_draining.transform() if connection_draining else None
          self.pick_host_name_from_backend_address = pick_host_name_from_backend_address if pick_host_name_from_backend_address else None
          self.host_name = host_name if host_name else None
          self.request_timeout = request_timeout if request_timeout else None
@@ -406,7 +440,15 @@ class BackendHttpSettings(Resource):
             request_timeout = self.request_timeout,
             connection_draining = self.connection_draining,
             pick_host_name_from_backend_address = self.pick_host_name_from_backend_address,
-            host_name = self.host_name
+            host_name = self.host_name,
+            probe = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="probes",
+                child_name_1=self.name))
         )
 
         # TODO: prob, authentication certificates, probe, affinity_cookie_name, path
@@ -473,8 +515,22 @@ class HttpListener(Resource):
 
         model = factory(
             name = self.name,
-            frontend_ip_cofiguration = self.frontend_ip_configuration_name,
-            frontend_port = self.frontend_port_name,
+            frontend_ip_configuration = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="frontendIPConfigurations",
+                child_name_1=self.frontend_ip_configuration_name)),
+            frontend_port = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="frontendPorts",
+                child_name_1=self.frontend_port_name)),
             protocol = self.protocol,
             ssl_certificate = self.ssl_certificate_name,
             require_server_name_indication = self.require_server_name_indication
@@ -545,7 +601,7 @@ class UrlPathMap(Resource):
         "default_backend_address_pool_name": {"key": "defaultBackendAddressPoolName", "type": "str"},
         "default_backend_http_settings_name": {"key": "defaultBackendHttpSettingsName", "type": "str"},
         "default_redirect_configuration_name": {"key": "defaultRedirectConfigurationName", "type": "str"},
-        "path_rules": {"key": "pathRules", "type": "[PathRule]"}
+        "path_rules": {"key": "pathRules", "type": "[PathRule]", "parent": "url_path_map"}
     }
 
     def __init__(self, default_backend_address_pool_name=None, default_backend_http_settings_name=None, default_redirect_configuration_name=None, path_rules=None, **kwargs):
@@ -564,14 +620,38 @@ class UrlPathMap(Resource):
     def transform(self):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayUrlPathMapSdk)
 
+        if self.default_redirect_configuration_name != None:
+            self.default_redirect_configuration_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="redirectConfigurations",
+                child_name_1=self.default_redirect_configuration_name))
+
         model = factory(
             name = self.name,
-            default_backend_address_pool = self.default_backend_address_pool_name,
-            default_backend_http_settings = self.default_backend_http_settings_name,
+            default_backend_address_pool = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="backendAddressPools",
+                child_name_1=self.default_backend_address_pool_name)),
+            default_backend_http_settings = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="backendHttpSettingsCollection",
+                child_name_1=self.default_backend_http_settings_name)),
             default_redirect_configuration = self.default_redirect_configuration_name,
-            path_rules = self.path_rules
+            path_rules = [p.transform(self.application_gateway) for p in self.path_rules]
         )
-
+        
         return model
 
 class PathRule(Resource):
@@ -595,14 +675,45 @@ class PathRule(Resource):
             "redirect_configuration_name": {"required": True}
         })
 
-    def transform(self):
+    def transform(self, application_gateway):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayPathRuleSdk)
+
+        if self.backend_address_pool_name != None:
+            self.backend_address_pool_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=application_gateway.name,
+                child_type_1="backendAddressPools",
+                child_name_1=self.backend_address_pool_name))
+
+        if self.backend_http_settings_name != None:
+            self.backend_http_settings_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=application_gateway.name,
+                child_type_1="backendHttpSettingsCollection",
+                child_name_1=self.backend_http_settings_name))
+
+        if self.redirect_configuration_name != None:
+            self.redirect_configuration_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=application_gateway.name,
+                child_type_1="redirectConfigurations",
+                child_name_1=self.redirect_configuration_name))
 
         model = factory (
             paths = self.paths,
             backend_address_pool = self.backend_address_pool_name,
             backend_http_settings = self.backend_http_settings_name,
-            redirect_configuration = self.redirect_configuration_name
+            redirect_configuration = self.redirect_configuration_name,
+            name=self.name
         )
 
         return model
@@ -637,6 +748,52 @@ class RequestRoutingRule(Resource):
         })
 
     def transform(self):
+        if self.http_listener_name != None:
+            self.http_listener_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="httpListeners",
+                child_name_1=self.http_listener_name))
+        if self.backend_address_pool_name != None:
+            self.backend_address_pool_name =  SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="backendAddressPools",
+                child_name_1=self.backend_address_pool_name))
+        if self.backend_http_settings_name != None:
+            self.backend_http_settings_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="backendHttpSettingsCollection",
+                child_name_1=self.backend_http_settings_name))
+        if self.url_path_map_name != None:
+            self.url_path_map_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="urlPathMaps",
+                child_name_1=self.url_path_map_name))
+        if self.redirect_configuration_name != None:
+            self.redirect_configuration_name = SubResource(id=resource_id(
+                subscription=self.additional_properties['subscriptionId'],
+                resource_group=self.additional_properties['resourceGroupName'],
+                namespace='Microsoft.Network',
+                type='applicationGateways',
+                name=self.application_gateway.name,
+                child_type_1="urlPathMaps",
+                child_name_1=self.redirect_configuration_name))
+            
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayRequestRoutingRuleSdk)
 
         model = factory(
@@ -645,7 +802,8 @@ class RequestRoutingRule(Resource):
             backend_address_pool = self.backend_address_pool_name,
             backend_http_settings = self.backend_http_settings_name,
             url_path_map = self.url_path_map_name,
-            redirect_configuration = self.redirect_configuration_name
+            redirect_configuration = self.redirect_configuration_name,
+            http_listener= self.http_listener_name
         )
 
         return model
@@ -675,7 +833,7 @@ class WebApplicationFirewallConfiguration(Resource):
         self.firewall_mode = firewall_mode if firewall_mode else None
         self.rule_set_type = rule_set_type if rule_set_type else 'OWASP'
         self.rule_set_version = rule_set_version if rule_set_version else None
-        self.disabled_rule_groups = disabled_rule_groups if disabled_rule_groups else None
+        self.disabled_rule_groups = disabled_rule_groups.transform() if disabled_rule_groups else None
         self._validation.update({
             "enabled": {"required": True},
             "firewall_mode": {"required": True, "custom": WebApplicationFirewallConfiguration._is_valid_firewall_mode},
@@ -771,7 +929,7 @@ class Probe(Resource):
         })
 
     def transform(self):
-        factory = ApplicationGatewayBuildingBlock(ApplicationGatewayProbeSdk)
+        factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayProbeSdk)
 
         model = factory(
             name = self.name,
@@ -947,6 +1105,3 @@ class SslPolicy(Resource):
             return True
         else:
             return False
-    
-
-    
