@@ -63,16 +63,20 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
         self.settings = settings if settings else []
 
     def transform(self):
+        print(self.settings)
         ip_addresses = [application_gateway.frontend_ip_configurations for application_gateway in self.settings if application_gateway.frontend_ip_configurations]
         public_ip_addresses = [ip_address.transform() for ip_address in ip_addresses[0] if ip_address.application_gateway_type == 'Public']
         application_gateways = [application_gateway.transform() for application_gateway in self.settings]
         
-        resource_groups = extract_resource_groups(application_gateways)
+        resource_groups = proxy_extract_resource_groups(application_gateways)
         template_parameters = {
             'applicationGateways': application_gateways,
             'publicIpAddresses': public_ip_addresses
         }
         return resource_groups, template_parameters
+
+    def proxy_extract_resource_groups(self, application_gateways):
+        return extract_resource_groups(application_gateways)
 
     @classmethod
     def onregister(cls):

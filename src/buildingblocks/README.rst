@@ -12,9 +12,9 @@ Prerequisites
   ex:  python -m venv c:\azbb-port\env
   NOTE:  The "env" name is important because the dev_activate.bat and dev_deactivate.bat script use it!
 
-3.  Run this to get the Python SDK pieces that we are using (for now):  pip install azure-mgmt-network
+3.  Run this to get the Python SDK pieces that we are using (for now):  pip install azure-mgmt-network azure-mgmt-compute
 
-4.  Since this is now integrated into the CLI (v2.0.24 or later!):  pip install azure-cli-core
+4.  Since this is now integrated into the CLI (v2.0.24 or later!):  pip install azure-cli-core 
     Workflow!
     a.  Open command prompt, change to this directory, run dev_activate.bat, run "code ."
     b.  Write code!
