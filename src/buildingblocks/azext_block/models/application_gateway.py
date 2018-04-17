@@ -830,7 +830,6 @@ class SslCertificate(Resource):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySslCertificateSdk)
 
         model = factory(
-            id = self.id,
             name = self.name,
             data = self.data,
             password = self.password
