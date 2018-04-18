@@ -62,9 +62,30 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
         self.settings = settings if settings else []
 
     def transform(self):
-        public_ip_addresses = []
-
         application_gateways = [application_gateway.transform(application_gateway.additional_properties['virtualNetwork']['name']) for application_gateway in self.settings]
+
+        public_ip_addresses = self.get_ip_addresses(application_gateways)
+
+        resource_groups = extract_resource_groups(application_gateways)
+        template_parameters = {
+            'applicationGateways': application_gateways,
+            'publicIpAddresses': public_ip_addresses
+        }
+
+        return resource_groups, template_parameters
+
+    def proxy_extract_resource_groups(self, application_gateways):
+        return extract_resource_groups(application_gateways)
+
+    @classmethod
+    def onregister(cls):
+        cls.register_sdk_model(ApplicationGatewaySdk, {
+            'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
+            'resource_group_name': {'key': 'resourceGroupName', 'type': 'str'}#
+        })
+
+    def get_ip_addresses(self,application_gateways):
+        public_ip_addresses = []
 
         for application_gateway in application_gateways:
             ip_addresses = [application_gateway.frontend_ip_configurations for application_gateway in self.settings if application_gateway.frontend_ip_configurations]
@@ -83,45 +104,28 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
                     'domain_name_label': None
                 }
 
-                ip_address.name = "{}-{}".format(application_gateway.name, ip_address.name)
-
                 public_ip_address = PublicIPAddress(**public_ip_address_parameters)
                 public_ip_addresses.append(public_ip_address.transform())
         
-        resource_groups = extract_resource_groups(application_gateways)
-        template_parameters = {
-            'applicationGateways': application_gateways,
-            'publicIpAddresses': public_ip_addresses
-        }
-        return resource_groups, template_parameters
-
-    def proxy_extract_resource_groups(self, application_gateways):
-        return extract_resource_groups(application_gateways)
-
-    @classmethod
-    def onregister(cls):
-        cls.register_sdk_model(ApplicationGatewaySdk, {
-            'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
-            'resource_group_name': {'key': 'resourceGroupName', 'type': 'str'}#
-        })
+        return public_ip_addresses
 
 @ResourceId(namespace="Microsoft.Network", type="ApplicationGateways")
 class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
     _attribute_map = {
         "sku": {"key": "sku", "type": "Sku"},
         "gateway_ip_configurations": {"key": "gatewayIPConfigurations", "type": "[GatewayIPConfiguration]"},
+        "ssl_certificates": {"key": "sslCertificates", "type": "[SslCertificate]"},
+        "authentication_certificates": {"key": "authenticationCertificates", "type": "[AuthenticationCertificate]"},
         "frontend_ip_configurations": {"key": "frontendIPConfigurations", "type": "[FrontendIPConfiguration]", "parent": "application_gateway"},
+        "frontend_ports": {"key": "frontendPorts", "type": "[FrontendPort]"},
         "backend_address_pools": {"key": "backendAddressPools", "type": "[BackendAddressPool]"},
         "backend_http_settings_collection": {"key": "backendHttpSettingsCollection", "type": "[BackendHttpSettings]", "parent": "application_gateway"},
         "http_listeners": {"key": "httpListeners", "type": "[HttpListener]", 'parent': 'application_gateway'},
-        #"redirect_configurations": {"key": "redirectConfigurations", "type": "[RedirectConfiguration]"},
         "url_path_maps": {"key": "urlPathMaps", "type": "[UrlPathMap]", 'parent': 'application_gateway'},
         "request_routing_rules": {"key": "requestRoutingRules", "type": "[RequestRoutingRule]", "parent": "application_gateway"},
-        "web_application_firewall_configuration": {"key": "webApplicationFirewallConfiguration", "type": "WebApplicationFirewallConfiguration"},
         "probes": {"key": "probes", "type": "[Probe]"},
-        "ssl_certificates": {"key": "sslCertificates", "type": "[SslCertificate]"},
-        "authentication_certificates": {"key": "authenticationCertificates", "type": "[AuthenticationCertificate]"},
-        "frontend_ports": {"key": "frontendPorts", "type": "[FrontendPort]"},
+        #"redirect_configurations": {"key": "redirectConfigurations", "type": "[RedirectConfiguration]"},
+        "web_application_firewall_configuration": {"key": "webApplicationFirewallConfiguration", "type": "WebApplicationFirewallConfiguration"},
         "ssl_policy": {"key": "sslPolicy", "type": "SslPolicy"}
     }
 
@@ -297,7 +301,7 @@ class FrontendIPConfiguration(TopLevelResource, Resource):
                 resource_group=self.resource_group_name,
                 namespace='Microsoft.Network',
                 type='publicIPAddresses',
-                name=self.name)),
+                name="{}-{}".format(self.application_gateway.name, self.name))) if self.application_gateway_type == 'Public' else None,
             subnet = SubResource(id=resource_id(
                 subscription=self.subscription_id,
                 resource_group=self.resource_group_name,
@@ -431,24 +435,27 @@ class BackendHttpSettings(Resource):
 
     def transform(self):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayBackendHttpSettingsSdk)
-
-        model = factory(
-            name = self.name,
-            port = self.port,
-            protocol = self.protocol,
-            cookie_based_affinity = self.cookie_based_affinity,
-            request_timeout = self.request_timeout,
-            connection_draining = self.connection_draining,
-            pick_host_name_from_backend_address = self.pick_host_name_from_backend_address,
-            host_name = self.host_name,
-            probe = SubResource(id=resource_id(
+        if self.probe_name != None:
+            self.probe_name = SubResource(id=resource_id(
                 subscription=self.additional_properties['subscriptionId'],
                 resource_group=self.additional_properties['resourceGroupName'],
                 namespace='Microsoft.Network',
                 type='applicationGateways',
                 name=self.application_gateway.name,
                 child_type_1="probes",
-                child_name_1=self.name))
+                child_name_1=self.probe_name))
+
+        model = factory(
+            name = self.name,
+            port = self.port,
+            protocol = self.protocol,
+            cookie_based_affinity = self.cookie_based_affinity if self.cookie_based_affinity else 'Disabled',
+            request_timeout = self.request_timeout if self.request_timeout else 30,
+            connection_draining = self.connection_draining,
+            pick_host_name_from_backend_address = self.pick_host_name_from_backend_address if self.pick_host_name_from_backend_address else False,
+            host_name = self.host_name,
+            probe = self.probe_name,
+            probe_enabled = True
         )
 
         # TODO: prob, authentication certificates, probe, affinity_cookie_name, path
@@ -846,14 +853,12 @@ class WebApplicationFirewallConfiguration(Resource):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayWebApplicationFirewallConfigurationSdk)
 
         model = factory(
-            enabled = self.enabled,
-            firewall_mode = self.firewall_mode,
-            rule_set_type = self.rule_set_type,
-            rule_set_version = self.rule_set_version,
+            enabled = self.enabled if self.enabled else True,
+            firewall_mode = self.firewall_mode if self.firewall_mode else 'Prevention',
+            rule_set_type = self.rule_set_type if self.rule_set_type else 'OWASP',
+            rule_set_version = self.rule_set_version if self.rule_set_version else '3.0',
             disabled_rule_groups = self.disabled_rule_groups
         )
-
-        return model
 
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_firewall_mode)))
     def _is_valid_firewall_mode(self, value):
@@ -935,7 +940,12 @@ class Probe(Resource):
             name = self.name,
             protocol = self.protocol,
             host = self.host,
-            path = self.path
+            path = self.path,
+            interval = 30,
+            timeout = 30,
+            unhealthy_threshold = 3,
+            pick_host_name_from_backend_http_settings = False,
+            min_servers = 0
         )
 
         return model
