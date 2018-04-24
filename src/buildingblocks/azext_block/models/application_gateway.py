@@ -1,5 +1,27 @@
-# TODO: A pool can contain only one of these three: IPs in BackendAddresses array, IPConfigurations of standalone Network Interfaces
+# TODO: Validations: -
+# A pool can contain only one of these three: IPs in BackendAddresses array, IPConfigurations of standalone Network Interfaces
+# Size based on WAF or Standard
+# Disabled rule group
+# IP or FQDN
+# More than 2 front end ip configurations - 1 public, 1 private
+# Validate resource references
+
+from ..validations import ValidationFunction
+
+from ..validations.networking import (is_valid_port_range)
+
+from .public_ip_address import (PublicIPAddress)
+
 from msrestazure.tools import resource_id
+
+from .building_block_settings import (BuildingBlock,
+                                      RegisterBuildingBlock)
+from .resources import (Resource,
+                        ResourceId,
+                        TaggedResource,
+                        TopLevelResource,
+                        convert_string_to_enum,
+                        extract_resource_groups)
 
 from azure.mgmt.network.models import (
     SubResource,
@@ -34,22 +56,9 @@ from azure.mgmt.network.models import (
     ApplicationGatewayFrontendPort as ApplicationGatewayFrontendPortSdk,
     ApplicationGatewaySslPolicy as ApplicationGatewaySslPolicySdk,
     ApplicationGatewayUrlPathMap as ApplicationGatewayUrlPathMapSdk,
-    ApplicationGatewaySslCertificate as ApplicationGatewaySslCertificateSdk
+    ApplicationGatewaySslCertificate as ApplicationGatewaySslCertificateSdk,
+    ApplicationGatewayConnectionDraining as ApplicationGatewayConnectionDrainingSdk
 )
-
-from .building_block_settings import (BuildingBlock,
-                                      RegisterBuildingBlock)
-from .resources import (Resource,
-                        ResourceId,
-                        TaggedResource,
-                        TopLevelResource,
-                        convert_string_to_enum,
-                        extract_resource_groups)
-from ..validations import ValidationFunction
-
-from ..validations.networking import (is_valid_port_range)
-
-from .public_ip_address import (PublicIPAddress)
 
 @RegisterBuildingBlock(name='ApplicationGateway', template_url='buildingBlocks/applicationGateways/applicationGateways.json', deployment_name='agws')
 class ApplicationGatewayBuildingBlock(BuildingBlock):
@@ -61,10 +70,16 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
         super(ApplicationGatewayBuildingBlock, self).__init__(**kwargs)
         self.settings = settings if settings else []
 
-    def transform(self):
-        application_gateways = [application_gateway.transform(application_gateway.additional_properties['virtualNetwork']['name']) for application_gateway in self.settings]
+    @classmethod
+    def onregister(cls):
+        cls.register_sdk_model(ApplicationGatewaySdk, {
+            'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
+            'resource_group_name': {'key': 'resourceGroupName', 'type': 'str'}#
+        })
 
-        public_ip_addresses = self.get_ip_addresses(application_gateways)
+    def transform(self):
+        public_ip_addresses = self.get_ip_addresses(self.settings)
+        application_gateways = [application_gateway.transform(application_gateway.additional_properties['virtualNetwork']['name']) for application_gateway in self.settings]
 
         resource_groups = extract_resource_groups(application_gateways)
         template_parameters = {
@@ -76,13 +91,6 @@ class ApplicationGatewayBuildingBlock(BuildingBlock):
 
     def proxy_extract_resource_groups(self, application_gateways):
         return extract_resource_groups(application_gateways)
-
-    @classmethod
-    def onregister(cls):
-        cls.register_sdk_model(ApplicationGatewaySdk, {
-            'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
-            'resource_group_name': {'key': 'resourceGroupName', 'type': 'str'}#
-        })
 
     def get_ip_addresses(self,application_gateways):
         public_ip_addresses = []
@@ -124,7 +132,7 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
         "url_path_maps": {"key": "urlPathMaps", "type": "[UrlPathMap]", 'parent': 'application_gateway'},
         "request_routing_rules": {"key": "requestRoutingRules", "type": "[RequestRoutingRule]", "parent": "application_gateway"},
         "probes": {"key": "probes", "type": "[Probe]"},
-        #"redirect_configurations": {"key": "redirectConfigurations", "type": "[RedirectConfiguration]"},
+        "redirect_configurations": {"key": "redirectConfigurations", "type": "[RedirectConfiguration]"},
         "web_application_firewall_configuration": {"key": "webApplicationFirewallConfiguration", "type": "WebApplicationFirewallConfiguration"},
         "ssl_policy": {"key": "sslPolicy", "type": "SslPolicy"}
     }
@@ -137,7 +145,7 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
          self.backend_address_pools = backend_address_pools if backend_address_pools else None
          self.backend_http_settings_collection = backend_http_settings_collection if backend_http_settings_collection else None
          self.http_listeners = http_listeners if http_listeners else None
-         #self.redirect_configurations = redirect_configurations if redirect_configurations else None
+         self.redirect_configurations = redirect_configurations if redirect_configurations else None
          self.url_path_maps = url_path_maps if url_path_maps else None
          self.request_routing_rules = request_routing_rules if request_routing_rules else None
          self.web_application_firewall_configuration = web_application_firewall_configuration.transform() if web_application_firewall_configuration else None
@@ -153,7 +161,7 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
              "backend_address_pools": {"required": True, "min_items": 1},
              "backend_http_settings_collection": {"required": True, "min_items": 1},
              "http_listeners": {"required": True, "min_items": 1},
-             #"redirect_configurations": {"required": True, "min_items": 1},
+             "redirect_configurations": {"required": True, "min_items": 1},
              "url_path_maps": {"required": True, "min_items": 1},
              "requesting_routing_rules": {"required": True, "min_items": 1},
              "web_application_firewall_configuration": {"required": True},
@@ -166,6 +174,9 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
 
         if self.ssl_certificates != None:
             self.ssl_certificates = [s.transform for s in self.ssl_certificates]
+
+        if self.redirect_configurations != None:
+            self.redirect_configurations = [r.transform() for r in self.redirect_configurations]
 
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySdk)
         model = factory(
@@ -186,7 +197,7 @@ class ApplicationGateway(TaggedResource, TopLevelResource, Resource):
             http_listeners = [l.transform() for l in self.http_listeners],
             url_path_maps = [u.transform() for u in self.url_path_maps],
             request_routing_rules = [r.transform() for r in self.request_routing_rules],
-            #redirect_configurations = self.redirectConfigurations,
+            redirect_configurations = self.redirect_configurations,
             web_application_firewall_configuration = self.web_application_firewall_configuration
         )
         return model
@@ -207,7 +218,6 @@ class Sku(Resource):
          self.size = size if size else "Medium" if tier == "WAF" else "Small"
          self.capacity = capacity if capacity else None
          self._validation.update({
-             #"size": {"required": True, "custom": Sku._is_valid_sku},
              "capacity": {"required": True, "custom": Sku._is_valid_capacity},
              "tier": {"required": True, "custom": Sku._is_valid_tier}
          })
@@ -221,23 +231,32 @@ class Sku(Resource):
         )
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_sizes)))
     def _is_valid_sku(self, value):
+        print('validate')
+        print(self)
         value = 'Standard_{}'.format(value)
         if value in self._valid_sizes:
             return True
         else:
             return False
-        
+
+    @classmethod    
     @ValidationFunction()
     def _is_valid_capacity(self, value):
+        print('validate')
+        print(self)
         if value > 0 and value <= 10:
             return True
         else:
             return False
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_tiers)))
     def _is_valid_tier(self, value):
+        print('validate')
+        print(self)
         if value in self._valid_tiers:
             return True
         else:
@@ -259,8 +278,8 @@ class GatewayIPConfiguration(Resource):
     def transform(self, vn=None):
         if self.subnet_name != None:
             self.subnet_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='virtualNetworks',
                 name=vn,
@@ -301,7 +320,7 @@ class FrontendIPConfiguration(TopLevelResource, Resource):
                 resource_group=self.resource_group_name,
                 namespace='Microsoft.Network',
                 type='publicIPAddresses',
-                name="{}-{}".format(self.application_gateway.name, self.name))) if self.application_gateway_type == 'Public' else None,
+                name="{}-{}".format(self.application_gateway.name, self.name))) if self.application_gateway_type == 'Public' else None, # pylint: disable=E1101
             subnet = SubResource(id=resource_id(
                 subscription=self.subscription_id,
                 resource_group=self.resource_group_name,
@@ -314,6 +333,7 @@ class FrontendIPConfiguration(TopLevelResource, Resource):
 
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: Public, Internal')
     def _is_valid_gateway_type(self, value):
         types = ["Public", "Internal"]
@@ -333,11 +353,7 @@ class InternalApplicationGatewaySetting(Resource):
          self.subnet_name = subnet_name if subnet_name else None
          self._validation.update({
              "subnet_name": {"required": True}
-         })
-
-    def transform(self):
-        # TODO
-        return False
+         })        
 
 class BackendAddressPool(Resource):
 
@@ -367,24 +383,21 @@ class BackendAddressPool(Resource):
 
 class BackendAddress(Resource):
     _attribute_map = {
-        "fqdn": {"key": "fqdn", "type": "str"}#,
-        #"ip_address": {"key": "ipAddress", "type": "str"}
+        "fqdn": {"key": "fqdn", "type": "str"}
     }
 
     def __init__(self, fqdn=None, ip_address=None, **kwargs):
          super(BackendAddress, self).__init__(**kwargs)
          self.fqdn = fqdn if fqdn else None
-         #self.ip_address if ip_address else None
          self._validation.update({
-            # Todo
+             'fqdn':{'required': True}
          })
 
     def transform(self):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayBackendAddressSdk)
 
         model = factory(
-            fqdn = self.fqdn#,
-            #ip_address = self.ip_address
+            fqdn = self.fqdn
         )
 
         return model
@@ -437,11 +450,11 @@ class BackendHttpSettings(Resource):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayBackendHttpSettingsSdk)
         if self.probe_name != None:
             self.probe_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="probes",
                 child_name_1=self.probe_name))
 
@@ -458,10 +471,9 @@ class BackendHttpSettings(Resource):
             probe_enabled = True
         )
 
-        # TODO: prob, authentication certificates, probe, affinity_cookie_name, path
-
         return model
     
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_affinity)))
     def _is_valid_cookie_based_affinity(self, value):
         
@@ -469,7 +481,8 @@ class BackendHttpSettings(Resource):
             return True
         else:
             return False
-            
+
+    @classmethod            
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_protocol_types)))
     def _is_valid_protocol(self, value):
 
@@ -486,10 +499,18 @@ class ConnectionDraining(Resource):
 
     def __init__(self, enabled=None, drain_timeout_in_sec=None, **kwargs):
          super(ConnectionDraining, self).__init__(**kwargs)
+         self.drain_timeout_in_sec = drain_timeout_in_sec if drain_timeout_in_sec else 1
+         self.enabled = enabled if enabled else False
 
     def transform(self):
-        # TODO: Transform
-        return False
+        factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewayConnectionDrainingSdk)
+
+        model = factory(
+            drain_timeout_in_sec = self.drain_timeout_in_sec,
+            enabled = self.enabled
+        )
+
+        return model
         
 class HttpListener(Resource):
     _attribute_map = {
@@ -523,19 +544,19 @@ class HttpListener(Resource):
         model = factory(
             name = self.name,
             frontend_ip_configuration = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="frontendIPConfigurations",
                 child_name_1=self.frontend_ip_configuration_name)),
             frontend_port = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="frontendPorts",
                 child_name_1=self.frontend_port_name)),
             protocol = self.protocol,
@@ -545,6 +566,7 @@ class HttpListener(Resource):
 
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_protocol_types)))
     def _is_valid_protocol(self, value):
         
@@ -589,12 +611,9 @@ class RedirectConfiguration(Resource):
             target_url = self.target_url
         )
 
-        # TODO: Routing request rules
-
-        # TODO: Url path maps
-
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_redirect_types)))
     def _is_valid_redirect_type(self, value):
         
@@ -629,34 +648,34 @@ class UrlPathMap(Resource):
 
         if self.default_redirect_configuration_name != None:
             self.default_redirect_configuration_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="redirectConfigurations",
                 child_name_1=self.default_redirect_configuration_name))
 
         model = factory(
             name = self.name,
             default_backend_address_pool = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="backendAddressPools",
                 child_name_1=self.default_backend_address_pool_name)),
             default_backend_http_settings = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="backendHttpSettingsCollection",
                 child_name_1=self.default_backend_http_settings_name)),
             default_redirect_configuration = self.default_redirect_configuration_name,
-            path_rules = [p.transform(self.application_gateway) for p in self.path_rules]
+            path_rules = [p.transform(self.application_gateway) for p in self.path_rules] # pylint: disable=E1101
         )
         
         return model
@@ -687,8 +706,8 @@ class PathRule(Resource):
 
         if self.backend_address_pool_name != None:
             self.backend_address_pool_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
                 name=application_gateway.name,
@@ -697,8 +716,8 @@ class PathRule(Resource):
 
         if self.backend_http_settings_name != None:
             self.backend_http_settings_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
                 name=application_gateway.name,
@@ -707,8 +726,8 @@ class PathRule(Resource):
 
         if self.redirect_configuration_name != None:
             self.redirect_configuration_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
                 name=application_gateway.name,
@@ -757,47 +776,47 @@ class RequestRoutingRule(Resource):
     def transform(self):
         if self.http_listener_name != None:
             self.http_listener_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="httpListeners",
                 child_name_1=self.http_listener_name))
         if self.backend_address_pool_name != None:
             self.backend_address_pool_name =  SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="backendAddressPools",
                 child_name_1=self.backend_address_pool_name))
         if self.backend_http_settings_name != None:
             self.backend_http_settings_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="backendHttpSettingsCollection",
                 child_name_1=self.backend_http_settings_name))
         if self.url_path_map_name != None:
             self.url_path_map_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="urlPathMaps",
                 child_name_1=self.url_path_map_name))
         if self.redirect_configuration_name != None:
             self.redirect_configuration_name = SubResource(id=resource_id(
-                subscription=self.additional_properties['subscriptionId'],
-                resource_group=self.additional_properties['resourceGroupName'],
+                subscription=self.additional_properties['subscriptionId'], # pylint: disable=E1101
+                resource_group=self.additional_properties['resourceGroupName'], # pylint: disable=E1101
                 namespace='Microsoft.Network',
                 type='applicationGateways',
-                name=self.application_gateway.name,
+                name=self.application_gateway.name, # pylint: disable=E1101
                 child_type_1="urlPathMaps",
                 child_name_1=self.redirect_configuration_name))
             
@@ -815,6 +834,7 @@ class RequestRoutingRule(Resource):
 
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_routing_rule_types)))
     def _is_valid_routing_rule_type(self, value):
 
@@ -860,6 +880,9 @@ class WebApplicationFirewallConfiguration(Resource):
             disabled_rule_groups = self.disabled_rule_groups
         )
 
+        return model
+
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_firewall_mode)))
     def _is_valid_firewall_mode(self, value):
 
@@ -868,6 +891,7 @@ class WebApplicationFirewallConfiguration(Resource):
         else:
             return False
 
+    @classmethod
     @ValidationFunction('Value must be set to OWASP')
     def _is_valid_rule_type(self, value):
 
@@ -950,6 +974,7 @@ class Probe(Resource):
 
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_protocol_types)))
     def _is_valid_protocol(self, value):
 
@@ -1079,11 +1104,16 @@ class SslPolicy(Resource):
         factory = ApplicationGatewayBuildingBlock.get_sdk_model(ApplicationGatewaySslPolicySdk)
 
         model = factory(
-
+            disabled_ssl_protocols = self.disabled_ssl_protocols,
+            policy_type = self.policy_type,
+            policy_name = self.policy_name,
+            cipher_suites = self.cipher_suites,
+            min_protocol_version = self.min_protocol_version
         )
 
         return model
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_cipher_suites)))
     def _is_valid_cipher_suites(self, value):
 
@@ -1092,6 +1122,7 @@ class SslPolicy(Resource):
         else:
             return False
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_ssl_protocols)))
     def _is_valid_ssl_protocol(self, value):
 
@@ -1100,6 +1131,7 @@ class SslPolicy(Resource):
         else:
             return False
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_ssl_policy_types)))
     def _is_valid_ssl_policy_type(self, value):
 
@@ -1108,6 +1140,7 @@ class SslPolicy(Resource):
         else:
             return False
 
+    @classmethod
     @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_ssl_policy_names)))
     def _is_valid_ssl_policy_name(self, value):
 
