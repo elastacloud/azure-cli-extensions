@@ -85,6 +85,10 @@ class BackendHttpSettingsTest(unittest.TestCase):
         target = BackendHttpSettings()
         self.assertTrue(target._is_valid_cookie_based_affinity("Disabled"))
 
+    def test_valid_affinity_doesnotmatch_unknown(self):
+        target = BackendHttpSettings()
+        self.assertFalse(target._is_valid_cookie_based_affinity("Elastacloud"))
+
     @mock.patch('azext_block.models.BackendHttpSettings._valid_protocol_types', new_callable=mock.PropertyMock)
     def test_valid_protocol_uses_validaffinities_member(self, mocked_p):
         mocked_p.return_value = ['Elastacloud']
@@ -99,9 +103,13 @@ class BackendHttpSettingsTest(unittest.TestCase):
         target = BackendHttpSettings()
         self.assertTrue(target._is_valid_protocol("Https"))
 
+    def test_valid_protocol_doesnotmatch_unknown(self):
+        target = BackendHttpSettings()
+        self.assertFalse(target._is_valid_protocol("Elastacloud"))
+
 class HttpListenerTest(unittest.TestCase):
     @mock.patch('azext_block.models.HttpListener._valid_protocol_types', new_callable=mock.PropertyMock)
-    def test_valid_protocol_uses_validaffinities_member(self, mocked_p):
+    def test_valid_protocol_uses_member(self, mocked_p):
         mocked_p.return_value = ['Elastacloud']
         target = HttpListener()
         self.assertTrue(target._is_valid_protocol("Elastacloud"))
@@ -114,6 +122,10 @@ class HttpListenerTest(unittest.TestCase):
         target = HttpListener()
         self.assertTrue(target._is_valid_protocol("Https"))
 
+    def test_valid_protocol_doesnotmatch_unknown(self):
+        target = HttpListener()
+        self.assertFalse(target._is_valid_protocol("Elastacloud"))
+
 class RedirectConfigurationTest(unittest.TestCase):
     @mock.patch('azext_block.models.RedirectConfiguration._redirect_types', new_callable=mock.PropertyMock)
     def test_valid_redirect_type_uses_member(self, mocked_p):
@@ -121,18 +133,22 @@ class RedirectConfigurationTest(unittest.TestCase):
         target = RedirectConfiguration()
         self.assertTrue(target._is_valid_redirect_type("Elastacloud"))
 
-    def test_valid_protocol_match_known_Permanent(self):
+    def test_valid_redirect_match_known_Permanent(self):
         target = RedirectConfiguration()
         self.assertTrue(target._is_valid_redirect_type("Permanent"))
 
-    def test_valid_protocol_match_known_Found(self):
+    def test_valid_redirect_match_known_Found(self):
         target = RedirectConfiguration()
         self.assertTrue(target._is_valid_redirect_type("Found"))
 
-    def test_valid_protocol_match_known_SeeOther(self):
+    def test_valid_redirect_match_known_SeeOther(self):
         target = RedirectConfiguration()
         self.assertTrue(target._is_valid_redirect_type("SeeOther"))
 
-    def test_valid_protocol_match_known_Temporary(self):
+    def test_valid_redirect_match_known_Temporary(self):
         target = RedirectConfiguration()
         self.assertTrue(target._is_valid_redirect_type("Temporary"))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = RedirectConfiguration()
+        self.assertFalse(target._is_valid_redirect_type("Elastacloud"))
