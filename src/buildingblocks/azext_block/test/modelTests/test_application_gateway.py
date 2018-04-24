@@ -2,7 +2,7 @@ from enum import Enum
 import unittest
 import unittest.mock as mock
 
-from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration)
+from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration)
 
 class MockSkus(Enum):
     small = 'Standard_Big'
@@ -69,3 +69,70 @@ class FrontendIPConfigurationTest(unittest.TestCase):
     def test_is_valid_gateway_type_irrelevant_to_current(self):        
         target = FrontendIPConfiguration(application_gateway_type='Internal')
         self.assertTrue(target._is_valid_gateway_type("Public"))
+
+class BackendHttpSettingsTest(unittest.TestCase):
+    @mock.patch('azext_block.models.BackendHttpSettings._valid_affinity', new_callable=mock.PropertyMock)
+    def test_valid_affinity_uses_validaffinities_member(self, mocked_p):
+        mocked_p.return_value = ['Microsoft']
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_cookie_based_affinity("Microsoft"))
+
+    def test_valid_affinity_match_known_Enabled(self):
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_cookie_based_affinity("Enabled"))
+
+    def test_valid_affinity_match_known_Disabled(self):
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_cookie_based_affinity("Disabled"))
+
+    @mock.patch('azext_block.models.BackendHttpSettings._valid_protocol_types', new_callable=mock.PropertyMock)
+    def test_valid_protocol_uses_validaffinities_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_protocol("Elastacloud"))
+
+    def test_valid_protocol_match_known_Http(self):
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_protocol("Http"))
+
+    def test_valid_protocol_match_known_Https(self):
+        target = BackendHttpSettings()
+        self.assertTrue(target._is_valid_protocol("Https"))
+
+class HttpListenerTest(unittest.TestCase):
+    @mock.patch('azext_block.models.HttpListener._valid_protocol_types', new_callable=mock.PropertyMock)
+    def test_valid_protocol_uses_validaffinities_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = HttpListener()
+        self.assertTrue(target._is_valid_protocol("Elastacloud"))
+
+    def test_valid_protocol_match_known_Http(self):
+        target = HttpListener()
+        self.assertTrue(target._is_valid_protocol("Http"))
+
+    def test_valid_protocol_match_known_Https(self):
+        target = HttpListener()
+        self.assertTrue(target._is_valid_protocol("Https"))
+
+class RedirectConfigurationTest(unittest.TestCase):
+    @mock.patch('azext_block.models.RedirectConfiguration._redirect_types', new_callable=mock.PropertyMock)
+    def test_valid_redirect_type_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = RedirectConfiguration()
+        self.assertTrue(target._is_valid_redirect_type("Elastacloud"))
+
+    def test_valid_protocol_match_known_Permanent(self):
+        target = RedirectConfiguration()
+        self.assertTrue(target._is_valid_redirect_type("Permanent"))
+
+    def test_valid_protocol_match_known_Found(self):
+        target = RedirectConfiguration()
+        self.assertTrue(target._is_valid_redirect_type("Found"))
+
+    def test_valid_protocol_match_known_SeeOther(self):
+        target = RedirectConfiguration()
+        self.assertTrue(target._is_valid_redirect_type("SeeOther"))
+
+    def test_valid_protocol_match_known_Temporary(self):
+        target = RedirectConfiguration()
+        self.assertTrue(target._is_valid_redirect_type("Temporary"))
