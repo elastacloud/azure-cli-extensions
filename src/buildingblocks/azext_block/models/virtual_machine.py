@@ -4,9 +4,9 @@ from azure.mgmt.compute.models import (VirtualMachine as VirtualMachineSdk,
     VirtualMachineScaleSet as VirtualMachineScaleSetSdk,
     OSDisk as OSDiskSdk,
     ImageReference as ImageReferenceSdk,
-    DataDisk as DataDiskSdk)
-# Network model imports
-from azure.mgmt.network.models import (NetworkInterface as NetworkInterfaceSdk, IPConfiguration, Subnet as SubnetSdk)
+    DataDisk as DataDiskSdk,
+    VirtualMachineSizeTypes,
+    OperatingSystemTypes)
 # Local model imports
 from .application_gateway import (ApplicationGateway)
 from .load_balancer import (LoadBalancer)
@@ -18,9 +18,11 @@ from .resources import (Resource, ResourceId, ResourceReference, TaggedResource,
 from ..validations.networking import (is_valid_cidr)
 from ..validations.virtual_machine import (is_valid_sku)
 from enum import Enum
+from .public_ip_address import (PublicIPAddress)
+from .network_interface import (NetworkInterface)
 
 # Register building block
-@RegisterBuildingBlock(name='VirtualMachine', template_url='buildingBlocks/VirtualMachines/virtualMachines.json', deployment_name='vm')
+@RegisterBuildingBlock(name='VirtualMachine', template_url='buildingBlocks/virtualMachines/virtualMachines.json', deployment_name='vm')
 class VirtualMachineBuildingBlock(BuildingBlock):
     _attribute_map = {
         'settings': {'key': 'settings', 'type': '[VirtualMachine]'}
@@ -32,11 +34,53 @@ class VirtualMachineBuildingBlock(BuildingBlock):
 
     def transform(self):
         virtual_machines = []
+        storage_accounts = []
+        diagnostic_storage_accounts = []
+        availability_set = []
+        load_balancers = []
+        scale_sets = []
+        auto_scale_settings = []
+        application_gateways = []
+        secrets = []
+
+        network_interfaces = [network_interface.transform() for vm in virtual_machines for nic in self.settings.nics]
+        public_ip_addresses = get_ip_addresses(self.settings.nics)
+
         resource_groups = extract_resource_groups(virtual_machines)
         template_parameters = {
-            "virtualMachines": virtual_machines
+            "virtualMachines": virtual_machines,
+            "publicIpAddresses": public_ip_addresses,
+            "networkInterfaces": network_interfaces,
+            "storageAccounts": storage_accounts,
+            "diagnosticStorageAccounts": diagnostic_storage_accounts,
+            "availabilitySet": availability_set,
+            "loadBalancers": load_balancers,
+            "scaleSets": scale_sets,
+            "autoScaleSettings": auto_scale_settings,
+            "applicationGateways": application_gateways,
+            "secrets": secrets 
         }
         return resource_groups, template_parameters
+    def get_ip_addresses(self,network_interfaces):
+
+        nics = [nic for nic in network_interfaces if network_interface.is_public == True]
+        for nic in nics:
+            public_ip_address_parameters = {
+                'subscription_id': self.subscription_id,
+                'resource_group_name': self.resource_group_name,
+                'location': self.location,
+                'name': "{}-{}-pip".format(nic.virtual_machine.name,  nic.name),
+                'public_ip_allocation_method': 'Dynamic',
+                'public_ip_address_version': "IPv4",
+                'idle_timeout_in_minutes': None,
+                'zones': None,
+                'domain_name_label': None
+            }
+
+            public_ip_address = PublicIPAddress(**public_ip_address_parameters)
+            public_ip_addresses.append(public_ip_address.transform())
+        
+        return public_ip_addresses
 
     @classmethod
     def onregister(cls):
@@ -68,6 +112,9 @@ class VirtualMachine(TaggedResource, TopLevelResource, Resource):
         'application_gateway_settings': {'key': 'applicationGatewaySettings','type': 'ApplicationGateway'}
     }
 
+    _valid_os_types = frozenset([e.value for e in OperatingSystemTypes])
+    _valid_sizes = frozenset([e.value for e in VirtualMachineSizeTypes])
+
     def __init__(self, vm_count=None, name_prefix=None, computer_name_prefix=None,size=None,os_type=None,image_reference=None,admin_username=None,admin_password=None,ssh_public_key=None, nics=None,os_disc=None,data_disks=None,availability_sets=None,diagnostic_storage_accounts=None,storage_accounts=None,scale_set_settings=None,load_balancer_settings=None,application_gateway_settings=None, **kwargs):
         super(VirtualMachine, self).__init__(**kwargs)
         self.vm_count = vm_count if vm_count else 1
@@ -75,10 +122,24 @@ class VirtualMachine(TaggedResource, TopLevelResource, Resource):
         self.computer_name_prefix = computer_name_prefix
         self.size = size if size else 'Standard_DS2_v2'
         self.os_type = os_type if os_type else None
+        self.image_reference = image_reference if image_reference else None
+        self.admin_username = admin_username if admin_username else None
+        self.admin_password = admin_password if admin_password else None
+        self.ssh_public_key = ssh_public_key if ssh_public_key else None
+        self.nics = nics if nics else None
+        self.os_disc = os_disc if os_disc else None
+        self.data_disks = data_disks if data_disks else None
+        self.availability_sets = availability_sets if availability_sets else None
+        self.diagnostic_storage_accounts = diagnostic_storage_accounts if diagnostic_storage_accounts else None
+        self.storage_accounts = storage_accounts if storage_accounts else None
+        self.scale_set_settings = scale_set_settings if scale_set_settings else None
+        self.load_balancer_settings = load_balancer_settings if load_balancer_settings else None
+        self.application_gateway_settings = application_gateway_settings if application_gateway_settings else None
 
         self._validation.update({
             'name_prefix': {'required': True},
-            'os_type': {'required': True, 'custom': is_valid_os_type},
+            'os_type': {'required': True, 'custom': VirtualMachine.is_valid_os_type},
+            'size': {'required': True, 'custom': VirtualMachine.is_valid_size},
             'admin_username': {'required': True},
             'nics': {'required': True, 'min_items': 1}
         })
@@ -95,6 +156,20 @@ class VirtualMachine(TaggedResource, TopLevelResource, Resource):
 
         return model
 
+    @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_os_types)))
+    def is_valid_os_type(self, value):
+        if value in self._valid_os_types:
+            return True
+        else:
+            return False
+
+    @ValidationFunction('Value must be one of the following values: {}'.format(','.join(_valid_sizes)))
+    def is_valid_size(self, value):
+        if value in self._valid_sizes:
+            return True
+        else: 
+            return False
+
 class ImageReference():
     _attribute_map = {
         'id': {'key': 'id', 'type': 'str'},
@@ -106,12 +181,27 @@ class ImageReference():
 
     def __init__(self, id=None, publisher=None, offer=None, sku=None, version=None, **kwargs):
         super(ImageReference, self).__init__(**kwargs)
-        self._validation.update({})
+        self.id = id if id else None
+        self.publisher = publisher if publisher else None
+        self.offer = offer if offer else None
+        self.sku = sku if sku else None
+        self.version = version if version else 'latest'
+        self._validation.update({
+            'id': {'required': True},
+            'publisher': {'required': True},
+            'offer': {'required': True},
+            'sku': {'required': True},
+            'version': {'required': True}
+        })
 
     def transform(self):
         factory = VirtualMachineBuildingBlock.get_sdk_model(ImageReferenceSdk)
         model = factory(
-            name=self.name
+            id = self.id,
+            publisher = self.publisher,
+            offer = self.offer,
+            sku = self.sku,
+            version = self.version
         )
 
         return model

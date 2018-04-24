@@ -16,38 +16,6 @@
             ]
         },
         {
-            "name": "az process test",
-            "request": "launch",
-            "type": "python",
-            "stopOnEntry": false,
-            "pythonPath": "C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\python.exe",
-            "cwd": "${workspaceFolder}",
-            //"cwd": "C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\Lib\\site-packages\\azure\\cli\\",
-            "program": "C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\Lib\\site-packages\\azure\\cli\\__main__.py",
-            "args": [
-                "block",
-                "process",
-                "--debug",
-                "--parameter-file",
-                "${workspaceFolder}\\deploy-test.json",
-                "--resource-group",
-                "mspnp",
-                "--location",
-                "north europe"
-                //"-Im",
-                //"azure.cli"//,
-                // "extension",
-                // "list"
-            ],
-            "env": {
-                "AZURE_EXTENSION_DIR": "C:\\Users\\james\\.azure\\devcliextensions"
-            },
-            //"console": "integratedTerminal",
-            "debugOptions": [
-                "RedirectOutput"
-            ]
-        },
-        {
             "name": "az monkey patch test",
             "request": "launch",
             "type": "python",
@@ -88,7 +56,7 @@
                 "--parameter-file",
                 "${workspaceFolder}\\deploy-app-gateway.json",
                 "--resource-group",
-                "mspnp",
+                "mspnp3",
                 "--location",
                 "north europe"
                 //"-Im",
