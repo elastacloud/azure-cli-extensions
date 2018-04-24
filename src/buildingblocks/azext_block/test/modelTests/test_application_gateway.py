@@ -2,7 +2,7 @@ from enum import Enum
 import unittest
 import unittest.mock as mock
 
-from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration)
+from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration, RequestRoutingRule)
 
 class MockSkus(Enum):
     small = 'Standard_Big'
@@ -152,3 +152,23 @@ class RedirectConfigurationTest(unittest.TestCase):
     def test_valid_redirect_doesnotmatch_unknown(self):
         target = RedirectConfiguration()
         self.assertFalse(target._is_valid_redirect_type("Elastacloud"))
+
+
+class RequestRoutingRuleTest(unittest.TestCase):
+    @mock.patch('azext_block.models.RequestRoutingRule._valid_routing_rule_types', new_callable=mock.PropertyMock)
+    def test_valid_redirect_type_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = RequestRoutingRule()
+        self.assertTrue(target._is_valid_routing_rule_type("Elastacloud"))
+
+    def test_valid_redirect_match_known_Basic(self):
+        target = RequestRoutingRule()
+        self.assertTrue(target._is_valid_routing_rule_type("Basic"))
+
+    def test_valid_redirect_match_known_PathBasedRouting(self):
+        target = RequestRoutingRule()
+        self.assertTrue(target._is_valid_routing_rule_type("PathBasedRouting"))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = RequestRoutingRule()
+        self.assertFalse(target._is_valid_routing_rule_type("Elastacloud"))
