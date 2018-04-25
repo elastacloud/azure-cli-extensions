@@ -2,7 +2,7 @@ from enum import Enum
 import unittest
 import unittest.mock as mock
 
-from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration, RequestRoutingRule, WebApplicationFirewallConfiguration, Probe)
+from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration, RequestRoutingRule, WebApplicationFirewallConfiguration, Probe, SslPolicy)
 
 class MockSkus(Enum):
     small = 'Standard_Big'
@@ -211,6 +211,8 @@ class ProbeTest(unittest.TestCase):
         target = Probe()
         self.assertTrue(target._is_valid_protocol("Http"))
 
+    ## Note the documentation specifies this is correct, despite there being a different enum
+    ## called ProbeProtocol which includes TCP instead of HTTPS
     def test_valid_protocol_match_known_Https(self):
         target = Probe()
         self.assertTrue(target._is_valid_protocol("Https"))
@@ -218,3 +220,43 @@ class ProbeTest(unittest.TestCase):
     def test_valid_redirect_doesnotmatch_unknown(self):
         target = Probe()
         self.assertFalse(target._is_valid_protocol("Elastacloud"))
+
+class SslPolicyTest(unittest.TestCase):
+    @mock.patch('azext_block.models.SslPolicy._valid_cipher_suites', new_callable=mock.PropertyMock)
+    def test_valid_protocol_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = SslPolicy()
+        self.assertTrue(target._is_valid_cipher_suites("Elastacloud"))
+
+    def test_valid_protocol_match_known_Set(self):
+        target = SslPolicy()
+        documentedValidSet = [ "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"
+                                , "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
+                                , "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"
+                                , "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+                                , "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384"
+                                , "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256"
+                                , "TLS_DHE_RSA_WITH_AES_256_CBC_SHA"
+                                , "TLS_DHE_RSA_WITH_AES_128_CBC_SHA"
+                                , "TLS_RSA_WITH_AES_256_GCM_SHA384"
+                                , "TLS_RSA_WITH_AES_128_GCM_SHA256"
+                                , "TLS_RSA_WITH_AES_256_CBC_SHA256"
+                                , "TLS_RSA_WITH_AES_128_CBC_SHA256"
+                                , "TLS_RSA_WITH_AES_256_CBC_SHA"
+                                , "TLS_RSA_WITH_AES_128_CBC_SHA"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA"
+                                , "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA"
+                                , "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256"
+                                , "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256"
+                                , "TLS_DHE_DSS_WITH_AES_256_CBC_SHA"
+                                , "TLS_DHE_DSS_WITH_AES_128_CBC_SHA"
+                                , "TLS_RSA_WITH_3DES_EDE_CBC_SHA"]
+        for valid in documentedValidSet: self.assertTrue(target._is_valid_cipher_suites(valid))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = SslPolicy()
+        self.assertFalse(target._is_valid_cipher_suites("Elastacloud"))
