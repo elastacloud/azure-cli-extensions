@@ -260,3 +260,53 @@ class SslPolicyTest(unittest.TestCase):
     def test_valid_redirect_doesnotmatch_unknown(self):
         target = SslPolicy()
         self.assertFalse(target._is_valid_cipher_suites("Elastacloud"))
+
+    @mock.patch('azext_block.models.SslPolicy._valid_ssl_protocols', new_callable=mock.PropertyMock)
+    def test_valid_protocol_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = SslPolicy()
+        self.assertTrue(target._is_valid_ssl_protocol("Elastacloud"))
+
+    def test_valid_protocol_match_known_Set(self):
+        target = SslPolicy()
+        documentedValidSet = [ "TLSv1_0",
+                                "TLSv1_1",
+                                "TLSv1_2"]
+        for valid in documentedValidSet: self.assertTrue(target._is_valid_ssl_protocol(valid))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = SslPolicy()
+        self.assertFalse(target._is_valid_ssl_protocol("Elastacloud"))
+
+    @mock.patch('azext_block.models.SslPolicy._valid_ssl_policy_types', new_callable=mock.PropertyMock)
+    def test_valid_policy_types_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = SslPolicy()
+        self.assertTrue(target._is_valid_ssl_policy_type("Elastacloud"))
+
+    def test_valid_policy_types_match_known_Set(self):
+        target = SslPolicy()
+        documentedValidSet = [ "Predefined",
+                                "Custom" ]
+        for valid in documentedValidSet: self.assertTrue(target._is_valid_ssl_policy_type(valid))
+
+    def test_valid_policy_types_doesnotmatch_unknown(self):
+        target = SslPolicy()
+        self.assertFalse(target._is_valid_ssl_policy_type("Elastacloud"))
+
+    @mock.patch('azext_block.models.SslPolicy._valid_ssl_policy_names', new_callable=mock.PropertyMock)
+    def test_valid_policy_types_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = SslPolicy()
+        self.assertTrue(target._is_valid_ssl_policy_name("Elastacloud"))
+
+    def test_valid_policy_types_match_known_Set(self):
+        target = SslPolicy()
+        documentedValidSet = [ "AppGwSslPolicy20150501",
+                                "AppGwSslPolicy20170401",
+                                "AppGwSslPolicy20170401S" ]
+        for valid in documentedValidSet: self.assertTrue(target._is_valid_ssl_policy_name(valid))
+
+    def test_valid_policy_types_doesnotmatch_unknown(self):
+        target = SslPolicy()
+        self.assertFalse(target._is_valid_ssl_policy_name("Elastacloud"))
