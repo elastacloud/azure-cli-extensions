@@ -211,9 +211,9 @@ class ProbeTest(unittest.TestCase):
         target = Probe()
         self.assertTrue(target._is_valid_protocol("Http"))
 
-    def test_valid_protocol_match_known_Tcp(self):
+    def test_valid_protocol_match_known_Https(self):
         target = Probe()
-        self.assertTrue(target._is_valid_protocol("Tcp"))
+        self.assertTrue(target._is_valid_protocol("Https"))
 
     def test_valid_redirect_doesnotmatch_unknown(self):
         target = Probe()
