@@ -2,7 +2,7 @@ from enum import Enum
 import unittest
 import unittest.mock as mock
 
-from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration, RequestRoutingRule)
+from azext_block.models import (Sku, ApplicationGatewayBuildingBlock, ApplicationGateway, FrontendIPConfiguration, BackendHttpSettings, HttpListener, RedirectConfiguration, RequestRoutingRule, WebApplicationFirewallConfiguration, Probe)
 
 class MockSkus(Enum):
     small = 'Standard_Big'
@@ -172,3 +172,49 @@ class RequestRoutingRuleTest(unittest.TestCase):
     def test_valid_redirect_doesnotmatch_unknown(self):
         target = RequestRoutingRule()
         self.assertFalse(target._is_valid_routing_rule_type("Elastacloud"))
+
+class WebApplicationFirewallConfigurationTest(unittest.TestCase):
+    @mock.patch('azext_block.models.WebApplicationFirewallConfiguration._valid_firewall_mode', new_callable=mock.PropertyMock)
+    def test_valid_firewall_type_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = WebApplicationFirewallConfiguration()
+        self.assertTrue(target._is_valid_firewall_mode("Elastacloud"))
+
+    def test_valid_firewall_type_match_known_Detection(self):
+        target = WebApplicationFirewallConfiguration()
+        self.assertTrue(target._is_valid_firewall_mode("Detection"))
+        
+    def test_valid_firewall_type_match_known_Prevention(self):
+        target = WebApplicationFirewallConfiguration()
+        self.assertTrue(target._is_valid_firewall_mode("Prevention"))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = WebApplicationFirewallConfiguration()
+        self.assertFalse(target._is_valid_firewall_mode("Elastacloud"))
+
+    def test_valid_rule_type_OWASP(self):
+        target = WebApplicationFirewallConfiguration()
+        self.assertTrue(target._is_valid_rule_type("OWASP"))
+
+    def test_valid_rule_type_only_OWASP(self):
+        target = WebApplicationFirewallConfiguration()
+        self.assertFalse(target._is_valid_rule_type("Microsoft"))
+
+class ProbeTest(unittest.TestCase):
+    @mock.patch('azext_block.models.Probe._valid_protocol_types', new_callable=mock.PropertyMock)
+    def test_valid_protocol_uses_member(self, mocked_p):
+        mocked_p.return_value = ['Elastacloud']
+        target = Probe()
+        self.assertTrue(target._is_valid_protocol("Elastacloud"))
+
+    def test_valid_protocol_match_known_Http(self):
+        target = Probe()
+        self.assertTrue(target._is_valid_protocol("Http"))
+
+    def test_valid_protocol_match_known_Tcp(self):
+        target = Probe()
+        self.assertTrue(target._is_valid_protocol("Tcp"))
+
+    def test_valid_redirect_doesnotmatch_unknown(self):
+        target = Probe()
+        self.assertFalse(target._is_valid_protocol("Elastacloud"))
