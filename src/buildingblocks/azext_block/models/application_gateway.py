@@ -5,6 +5,7 @@
 # IP or FQDN
 # More than 2 front end ip configurations - 1 public, 1 private
 # Validate resource references
+# Check defaults
 
 from ..validations import ValidationFunction
 
