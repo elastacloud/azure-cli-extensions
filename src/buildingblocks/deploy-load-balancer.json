@@ -1,0 +1,338 @@
+{
+    "$schema": "https://raw.githubusercontent.com/mspnp/template-building-blocks/master/schemas/buildingBlocks.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "buildingBlocks": {
+            "value": [
+                {
+                    "type": "VirtualNetwork",
+                    "settings": [
+                        {
+                            "name": "simple-vnet",
+                            "addressPrefixes": [
+                                "10.0.0.0/16"
+                            ],
+                            "subnets": [
+                                {
+                                    "name": "default",
+                                    "addressPrefix": "10.0.1.0/24"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "LoadBalancer",
+                    "settings": [
+                        {
+                            "name": "my-test-lb2",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb3",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb4",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb5",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb6",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb7",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb8",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb9",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "my-test-lb10",
+                            "frontendIPConfigurations": [
+                                {
+                                    "name": "web-lb-fe-config1",
+                                    "loadBalancerType": "Public"
+                                }
+                            ],
+                            "loadBalancingRules": [
+                                {
+                                    "name": "lbr1",
+                                    "frontendPort": 80,
+                                    "backendPort": 80,
+                                    "protocol": "Tcp",
+                                    "backendPoolName": "web-lb-bep1",
+                                    "frontendIPConfigurationName": "web-lb-fe-config1",
+                                    "enableFloatingIP": false,
+                                    "probeName": "lbp1"
+                                }
+                            ],
+                            "probes": [
+                                {
+                                    "name": "lbp1",
+                                    "port": 80,
+                                    "protocol": "Http",
+                                    "requestPath": "/"
+                                }
+                            ],
+                            "backendPools": [
+                                {
+                                    "name": "web-lb-bep1"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

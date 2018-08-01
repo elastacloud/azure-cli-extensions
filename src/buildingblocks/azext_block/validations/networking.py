@@ -1,5 +1,6 @@
 from .validation_function import (ValidationFunction)
 from ipaddress import (ip_address, ip_network)
+from azure.mgmt.network.models import (TransportProtocol)
 
 @ValidationFunction('is not a valid IP Address')
 def is_valid_ip_address(value):

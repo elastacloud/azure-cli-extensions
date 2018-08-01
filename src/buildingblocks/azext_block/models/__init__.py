@@ -10,17 +10,9 @@ from .load_balancer import (
     LoadBalancerBuildingBlock
 )
 
-"""
 from .network_interface import (
-    NetworkInterface,
-    NetworkInterfaceBuildingBlock
+    NetworkInterface
 )
-
-from .virtual_machine import (
-    VirtualMachine,
-    VirtualMachineBuildingBlock
-)
-"""
 
 from .virtual_machine_extension import (
     VirtualMachineExtension,
@@ -102,4 +94,32 @@ from .application_gateway import (
     AuthenticationCertificate,
     SslPolicy,
     FrontendPort
+)
+
+from .load_balancer import (
+    LoadBalancerBuildingBlock,
+    LoadBalancer,
+    LoadBalancerFrontendIPConfiguration,
+    LoadBalancerProbe,
+    LoadBalancerBackendAddressPool,
+    LoadBalancingRule,
+    InboundNatRule,
+    InboundNatPool,
+    InternalLoadBalancerSetting
+)
+
+from .storage_account import(
+    StorageAccountBuildingBlock,
+    StorageAccount
+)
+
+from .virtual_machine import (
+    VirtualMachine,
+    VirtualMachineBuildingBlock,
+    ImageReference,
+    OSDisk,
+    DataDisk,
+    AvailabilitySet,
+    DiagnosticStorageAccount,
+    ScaleSetSettings
 )

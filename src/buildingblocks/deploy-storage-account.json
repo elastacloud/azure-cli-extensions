@@ -1,0 +1,20 @@
+{
+    "$schema": "https://raw.githubusercontent.com/mspnp/template-building-blocks/master/schemas/buildingBlocks.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "buildingBlocks": {
+            "value": [
+                {
+                    "type": "Storage",
+                    "settings": [
+                        {
+                            "name": "my-test-storage",
+                            "sku": "Standard_LRS",
+                            "supports_https_traffic_only": false
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

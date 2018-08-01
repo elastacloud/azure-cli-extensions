@@ -3,6 +3,7 @@ import uuid
 from .validation_function import (ValidationFunction)
 from .building_block_validation_error import (BuildingBlockValidationError, patch_validation)
 from .networking import (is_valid_cidr, is_valid_ip_address, is_valid_port_range)
+from .virtual_machine import (is_valid_os_type)
 __all__ = [
     'is_valid_cidr',
     'is_guid',
