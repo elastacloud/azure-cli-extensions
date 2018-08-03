@@ -113,13 +113,14 @@ from .storage_account import(
     StorageAccount
 )
 
-from .virtual_machine import (
-    VirtualMachine,
-    VirtualMachineBuildingBlock,
-    ImageReference,
-    OSDisk,
-    DataDisk,
-    AvailabilitySet,
-    DiagnosticStorageAccount,
-    ScaleSetSettings
-)
+#
+#from .virtual_machine import (
+#    VirtualMachine,
+#    VirtualMachineBuildingBlock,
+#    ImageReference,
+#    OSDisk,
+#    DataDisk,
+#    AvailabilitySet,
+#    DiagnosticStorageAccount,
+#    ScaleSetSettings
+#)
